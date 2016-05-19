@@ -7,7 +7,11 @@ SQL_TYPE_MAP = {
     SQL_CHAR: ctypes.c_char,
     SQL_WCHAR: ctypes.c_wchar,
     SQL_VARCHAR: ctypes.c_char,
-    SQL_WVARCHAR: ctypes.c_wchar
+    SQL_WVARCHAR: ctypes.c_wchar,
+    SQL_WLONGVARCHAR: ctypes.c_wchar,
+    SQL_SMALLINT: ctypes.c_short,
+    SQL_BIGINT: ctypes.c_longlong,
+    SQL_DOUBLE: ctypes.c_double,
 }
 
 # types from sqlext.h

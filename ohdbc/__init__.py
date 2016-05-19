@@ -17,7 +17,6 @@ No support for anything
 Inspired by pypyodbc, ceODBC and tutorials at Easysoft.com
 """
 
-
 from ohdbc.connection import Connection
 
 

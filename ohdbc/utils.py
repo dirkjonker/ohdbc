@@ -1,9 +1,10 @@
 import ctypes
 
+from ohdbc.exceptions import DatabaseError
 from ohdbc.sql import *
 
 
-def check_error(obj, ret, handle_type=None, handle=None):
+def check_error(obj, ret, message):
     """Validate return value and retrieve diagnostic info if applicable"""
     if ret in (SQL_SUCCESS, SQL_SUCCESS_WITH_INFO, SQL_NO_DATA):
         return
@@ -13,14 +14,14 @@ def check_error(obj, ret, handle_type=None, handle=None):
         native_error = ctypes.c_short()
         message_text = ctypes.create_string_buffer(500)
         message_length = ctypes.c_short()
-        ODBC_API.SQLGetDiagRecW(
-            handle_type, handle, 1, ctypes.byref(sql_state),
+        obj.api.SQLGetDiagRecW(
+            obj.handle_type, obj.handle, 1, ctypes.byref(sql_state),
             ctypes.byref(native_error), ctypes.byref(message_text),
             ctypes.sizeof(message_text), ctypes.byref(message_length))
-        error_msg = "[{}] {}".format(
-            sql_state.raw.decode('utf_16_le'),
-            message_text.raw.decode('utf_16_le'))
-        raise utils.DatabaseError(error_msg)
+        error_msg = "({}) [{}] {}".format(message,
+                                          sql_state.raw.decode('utf_16_le'),
+                                          message_text.raw.decode('utf_16_le'))
+        raise DatabaseError(error_msg)
 
 
 def create_utf16_buffer(string):
@@ -61,14 +62,12 @@ class c_utf_16_le(ctypes.c_char):
             self.value = value
 
     @property
-    def value(self,
-              c_void_p=ctypes.c_void_p):
+    def value(self, c_void_p=ctypes.c_void_p):
         addr = c_void_p.from_buffer(self).value
         return decode_utf16_from_address(addr)
 
     @value.setter
-    def value(self, value,
-              c_char=ctypes.c_char):
+    def value(self, value, c_char=ctypes.c_char):
         value = value.encode('utf-16le') + b'\x00'
         c_char.value.__set__(self, value)
 

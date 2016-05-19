@@ -1,4 +1,5 @@
 import ctypes
+import sys
 import time
 
 import ohdbc.utils as utils
@@ -7,11 +8,15 @@ from ohdbc.sql import *
 from ohdbc.sqltypes import *
 from ohdbc.utils import check_error
 
+
 def _init_env():
     """Initialize ODBC env handle
     Maybe add some more settings here, connection pooling etc.
     """
-    api = ctypes.cdll.LoadLibrary('libodbc.so')
+    if sys.platform == 'darwin':
+        api = ctypes.cdll.LoadLibrary('libodbc.2.dylib')
+    else:
+        api = ctypes.cdll.LoadLibrary('libodbc.so')
     env_h = ctypes.c_void_p()
     rc = api.SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE,
                             ctypes.byref(env_h))
@@ -32,17 +37,18 @@ class Connection:
         self.handle_type = SQL_HANDLE_DBC
         # allocate connection handle
         rc = self.api.SQLAllocHandle(SQL_HANDLE_DBC, self.env_h,
-                                ctypes.byref(self.handle))
+                                     ctypes.byref(self.handle))
         check_error(self, rc, 'allocate dbc handle')
         # connect
         connstr = utils.create_utf16_buffer(connstr)
-        rc = self.api.SQLDriverConnectW(self.handle, None, ctypes.byref(connstr),
-                                   ctypes.sizeof(connstr), None, 0, None,
-                                   SQL_DRIVER_NOPROMPT)
+        rc = self.api.SQLDriverConnectW(
+            self.handle, None, ctypes.byref(connstr), ctypes.sizeof(connstr),
+            None, 0, None, SQL_DRIVER_NOPROMPT)
         check_error(self, rc, 'connect (driver)')
         # set autocommit behavior
         rc = self.api.SQLSetConnectAttr(self.handle, SQL_ATTR_AUTOCOMMIT,
-                                   SQL_AUTOCOMMIT_DEFAULT, SQL_IS_UINTEGER)
+                                        SQL_AUTOCOMMIT_DEFAULT,
+                                        SQL_IS_UINTEGER)
         check_error(self, rc, 'set autocommit')
 
     def __enter__(self):

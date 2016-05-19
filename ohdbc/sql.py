@@ -175,6 +175,12 @@ SQL_DATETIME = 9
 SQL_VARCHAR = 12
 SQL_WCHAR = -8
 SQL_WVARCHAR = -9
+SQL_WLONGVARCHAR = -10
+
+ALL_SQL_CHAR = (SQL_CHAR, SQL_WCHAR, SQL_VARCHAR, SQL_WVARCHAR,
+                SQL_WLONGVARCHAR)
+
+SQL_BIGINT = -5
 
 #  One-parameter shortcuts for date/time data types #
 #if (ODBCVER >= 0x0300)
