@@ -68,7 +68,7 @@ class c_utf_16_le(ctypes.c_char):
 
     @value.setter
     def value(self, value, c_char=ctypes.c_char):
-        value = value.encode('utf-16le') + b'\x00'
+        value = value.encode('utf_16_le') + b'\x00'
         c_char.value.__set__(self, value)
 
     @classmethod

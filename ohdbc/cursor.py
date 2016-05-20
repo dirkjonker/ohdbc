@@ -89,18 +89,18 @@ class Cursor:
         retcols = [[]] * self.colcount.value
         for j, col in enumerate(self.return_buffer):
             n_rows_to_fetch = range(self.rows_fetched.value)
-            if col[3]:  # is_char_array
-                all_rows = []
-                for i in n_rows_to_fetch:
-                    length = col[2][i]
-                    if length <= 0:
-                        all_rows.append(None)
-                        continue
+            all_rows = []
+            for i in n_rows_to_fetch:
+                length = col[2][i]
+                if length < 0:
+                    all_rows.append(None)
+                    continue
+                if col[3]:  # is_char_array
                     value = col[1][i][:length]
                     all_rows.append(value.decode('utf_16_le'))
-                retcols[j] = all_rows
-            else:
-                retcols[j] = [col[1][i] for i in n_rows_to_fetch]
+                else:
+                    all_rows.append(col[1][i])
+            retcols[j] = all_rows
         return zip(*retcols)
 
     def _bindparams(self):
@@ -119,46 +119,46 @@ class Cursor:
 
     def _bindcol(self, col_num):
         """Get col description and then bind the col"""
-        col_name = ctypes.create_string_buffer(1024)
+        col_name = ctypes.create_string_buffer(256)
         col_name_size = ctypes.c_short()
         col_type = ctypes.c_short()
         col_type_size = ctypes.c_ssize_t()
         col_dec_digits = ctypes.c_short()
         col_nullable = ctypes.c_short()
-        rc = self.conn.api.SQLDescribeCol(
+        rc = self.conn.api.SQLDescribeColW(
             self.handle, col_num, ctypes.byref(col_name),
             ctypes.sizeof(col_name), ctypes.byref(col_name_size),
             ctypes.byref(col_type), ctypes.byref(col_type_size),
             ctypes.byref(col_dec_digits), ctypes.byref(col_nullable))
         check_error(self, rc, 'request col {}'.format(col_num))
+        col_name_decoded = col_name[:col_name_size.value*2].decode('utf_16_le')
+        nullable = bool(1-col_nullable.value)
         print('col #{} name: {}, type: {}, size: {} nullable: {}'.format(
-            col_num, col_name.value, col_type.value, col_type_size.value,
-            col_nullable.value))
+            col_num, col_name_decoded, col_type.value, col_type_size.value,
+            nullable))
         c_col_type = SQL_TYPE_MAP[col_type.value]
         charsize = None
         is_char_array = False
         is_fixed_width = False
         if col_type.value in ALL_SQL_CHAR:
-            if col_type.value in (SQL_CHAR, SQL_WCHAR):
-                charsize = col_type_size.value
-                is_fixed_width = True
-            else:
-                charsize = col_type_size.value + 1
-            if col_type.value in (SQL_WCHAR, SQL_WVARCHAR, SQL_WLONGVARCHAR):
-                # ODBC Unicode != utf-8; can't use the ctypes unicode buffer
-                c_col_type = c_utf_16_le
-                col_type.value = SQL_WCHAR
-            else:
-                col_type.value = SQL_CHAR
-            col_buff = ((c_col_type * charsize) * self.arraysize)()
             is_char_array = True
+            c_col_type = ctypes.c_char
+            charsize = col_type_size.value + 1
+            if col_type.value in (SQL_CHAR, SQL_WCHAR):
+                is_fixed_width = True
+                col_type.value = SQL_CHAR
+            elif col_type.value in (SQL_WCHAR, SQL_WVARCHAR, SQL_WLONGVARCHAR):
+                # ODBC Unicode != utf-8; can't use the ctypes c_wchar
+                charsize = col_type_size.value * 2 + 2
+                col_type.value = SQL_WCHAR
+            col_buff = ((c_col_type * charsize) * self.arraysize)()
         else:
             col_buff = (c_col_type * self.arraysize)()
         if col_type.value == SQL_BIGINT:
             col_type.value = -25  # SQL_C_BIGINT
         col_indicator = (ctypes.c_ssize_t * self.arraysize)()
         self.return_buffer.append((col_num, col_buff, col_indicator,
-                                   is_char_array, is_fixed_width))
+                                   is_char_array, is_fixed_width, nullable))
         # Bind the column
         rc = self.conn.api.SQLBindCol(self.handle, col_num, col_type.value,
                                       ctypes.byref(col_buff), charsize,
