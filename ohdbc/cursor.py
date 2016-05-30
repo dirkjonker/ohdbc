@@ -80,8 +80,10 @@ class Cursor:
         check_error(self, rc, 'get stmt rowcount')
         return self
 
-    def fetchmany(self, n):
+    def fetchmany(self, n=None):
         """Fetch the next (set of) row(s)"""
+        if n is None:
+            n = self.arraysize
         rc = self.conn.api.SQLFetch(self.handle)
         if rc == SQL_NO_DATA:
             return None
@@ -102,6 +104,15 @@ class Cursor:
                     all_rows.append(col[1][i])
             retcols[j] = all_rows
         return zip(*retcols)
+
+    def fetchall(self):
+        rows = []
+        while True:
+            r = self.fetchmany()
+            if not r:
+                break
+            rows.extend(list(r))
+        return rows
 
     def _bindparams(self):
         """Bind all params"""
@@ -133,9 +144,9 @@ class Cursor:
         check_error(self, rc, 'request col {}'.format(col_num))
         col_name_decoded = col_name[:col_name_size.value*2].decode('utf_16_le')
         nullable = bool(1-col_nullable.value)
-        print('col #{} name: {}, type: {}, size: {} nullable: {}'.format(
-            col_num, col_name_decoded, col_type.value, col_type_size.value,
-            nullable))
+        # print('col #{} name: {}, type: {}, size: {} nullable: {}'.format(
+        #     col_num, col_name_decoded, col_type.value, col_type_size.value,
+        #     nullable))
         c_col_type = SQL_TYPE_MAP[col_type.value]
         charsize = None
         is_char_array = False
